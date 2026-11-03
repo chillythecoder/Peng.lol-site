@@ -1,37 +1,475 @@
-const $ = s => document.querySelector(s);
-let me = null, toastTimer;
-const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),2600)}
-async function api(url, options={}){const r=await fetch(url,options);let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data.error||"Something went wrong.");return data}
-function openModal(html){$("#modalContent").innerHTML=html;$("#modalBackdrop").classList.add("open")}
-function closeModal(){$("#modalBackdrop").classList.remove("open")}
-$("#modalClose").onclick=closeModal;$("#modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal()});
-function accountUI(){
- const login=$("#loginOpen"), signup=$("#signupOpen"), avatar=$("#accountBtn");
- if(me){login.classList.add("hidden");signup.classList.add("hidden");avatar.classList.remove("hidden");avatar.textContent=me.username[0].toUpperCase();avatar.title=me.username;avatar.onclick=()=>{
- openModal(`<h2>${esc(me.username)} ${me.role==="owner"?"<span class='owner-pill'>OWNER</span>":me.role==="admin"?"<span class='owner-pill'>ADMIN</span>":""}</h2><p class="sub">Your PENG.LOL account</p><p class="sub">Account type: ${esc(me.role)}</p>${me.role!=="user"?'<button class="btn outline form-submit" id="adminOpen">Open admin panel</button>':''}<button class="btn primary form-submit" id="logoutBtn">Log out</button>`);
- $("#logoutBtn").onclick=async()=>{await api("/api/logout",{method:"POST"});me=null;closeModal();accountUI();toast("Logged out.");};
- if($("#adminOpen"))$("#adminOpen").onclick=adminPanel;
- };}else{login.classList.remove("hidden");signup.classList.remove("hidden");avatar.classList.add("hidden")}
+const $ = (selector) => document.querySelector(selector);
+
+let currentUser = null;
+let mods = [];
+let tools = [];
+
+const modalBackdrop = $("#modalBackdrop");
+const modalContent = $("#modalContent");
+
+async function api(url, options = {}) {
+    const response = await fetch(url, {
+        credentials: "same-origin",
+        ...options
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(data.error || "Something went wrong.");
+    }
+
+    return data;
 }
-function authForm(mode){const signup=mode==="signup";openModal(`<h2>${signup?"Join PENG.LOL":"Welcome back"}</h2><p class="sub">${signup?"Create your community account.":"Log in with your username and password."}</p><form id="authForm"><div class="field"><label>USERNAME</label><input name="username" minlength="3" maxlength="20" required autocomplete="username" placeholder="Your username"></div><div class="field"><label>PASSWORD</label><input name="password" type="password" minlength="${signup?8:1}" required autocomplete="${signup?"new-password":"current-password"}" placeholder="${signup?"At least 8 characters":"Your password"}"></div><button class="btn primary form-submit">${signup?"Create account":"Log in"} →</button></form><div class="switch-text">${signup?"Already have an account?":"New to PENG.LOL?"} <button class="text-button" id="switchAuth">${signup?"Log in":"Create an account"}</button></div>`);
- $("#switchAuth").onclick=()=>authForm(signup?"login":"signup");
- $("#authForm").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const d=await api(`/api/${signup?"register":"login"}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.fromEntries(f))});me=d.user;accountUI();closeModal();toast(`Welcome${signup?" to PENG.LOL": " back"}, ${me.username}.`);loadMods()}catch(err){toast(err.message)}};
+
+function escapeHTML(value = "") {
+    return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+    })[char]);
 }
-$("#loginOpen").onclick=()=>authForm("login");$("#signupOpen").onclick=()=>authForm("signup");$("#communityJoin").onclick=()=>me?toast("You're already part of the community."):authForm("signup");
-$("#uploadOpen").onclick=()=>{if(!me)return authForm("login");openModal(`<h2>Upload a mod</h2><p class="sub">Share a project with the PENG.LOL community.</p><form id="uploadForm"><div class="field"><label>MOD NAME</label><input name="name" required maxlength="80"></div><div class="field"><label>GAME</label><input name="game" required maxlength="80"></div><div class="field"><label>DESCRIPTION</label><textarea name="description" required maxlength="1200"></textarea></div><div class="field"><label>VERSION</label><input name="version" required placeholder="1.0.0"></div><div class="field"><label>COMPATIBILITY</label><input name="compatibility" placeholder="Game version / device"></div><div class="field"><label>INSTALLATION INSTRUCTIONS</label><textarea name="instructions"></textarea></div><div class="field"><label>DOWNLOAD FILE (ZIP, APK, 7Z, RAR, PDF, TXT — MAX 100 MB)</label><input type="file" name="file" accept=".zip,.7z,.rar,.apk,.jar,.dll,.so,.json,.txt,.pdf"></div><button class="btn primary form-submit">Publish mod →</button></form>`);
- $("#uploadForm").onsubmit=async e=>{e.preventDefault();try{await api("/api/mods",{method:"POST",body:new FormData(e.target)});closeModal();toast("Your mod has been published.");loadMods()}catch(err){toast(err.message)}};
-};
-async function loadMods(){const q=$("#search").value;try{const d=await api(`/api/mods?q=${encodeURIComponent(q)}&sort=${$("#sort").value}`);$("#modGrid").innerHTML=d.mods.length?d.mods.map(m=>`<article class="mod-card"><div class="mod-cover">${esc((m.game||"P").slice(0,2).toUpperCase())}</div><div class="mod-body"><div class="mod-meta"><span>${esc(m.game)} · v${esc(m.version)}</span><span>${m.featured?"✦ FEATURED":""}</span></div><h3>${esc(m.name)}</h3><p>${esc(m.description)}</p><div class="mod-foot"><span>by ${esc(m.author)} · ↓ ${m.downloads}</span><div class="mod-actions">${me?`<button class="small-btn fav" data-id="${m.id}">${m.is_favorite?"♥":"♡"}</button>`:""}${m.file_name?`<a class="small-btn" href="/api/mods/${m.id}/download">Download ↓</a>`:"<span class='small-btn'>No file</span>"}${(me&&(me.role==="owner"||me.role==="admin"||m.author_id===me.id))?`<button class="small-btn delete-mod" data-id="${m.id}">Delete</button>`:""}</div></div></div></article>`).join(""):'<div class="empty-state">No mods found. Be the first to upload one.</div>';
- document.querySelectorAll(".fav").forEach(b=>b.onclick=async()=>{try{await api(`/api/mods/${b.dataset.id}/favorite`,{method:"POST"});loadMods()}catch(e){toast(e.message)}});
- document.querySelectorAll(".delete-mod").forEach(b=>b.onclick=async()=>{if(confirm("Delete this mod?")){try{await api(`/api/mods/${b.dataset.id}`,{method:"DELETE"});toast("Mod deleted.");loadMods()}catch(e){toast(e.message)}}});
- }catch(e){$("#modGrid").innerHTML=`<div class="empty-state">${esc(e.message)}</div>`}}
-let searchTimer;$("#search").addEventListener("input",()=>{clearTimeout(searchTimer);searchTimer=setTimeout(loadMods,180)});$("#sort").onchange=loadMods;
-async function loadStats(){try{const s=await api("/api/stats");$("#statMods").textContent=s.mods;$("#statUsers").textContent=s.users;$("#statDownloads").textContent=s.downloads.toLocaleString()}catch{}}
-async function loadTutorials(){try{const d=await api("/api/tutorials");$("#tutorialGrid").innerHTML=d.tutorials.length?d.tutorials.map(t=>`<article class="tutorial-card"><small>GUIDE · BY ${esc(t.author)}</small><h3>${esc(t.title)}</h3><p>${esc(t.body)}</p></article>`).join(""):'<div class="empty-state">Tutorials are coming soon. Check back for community guides.</div>'}catch{}}
-async function adminPanel(){try{const d=await api("/api/admin/users");openModal(`<h2>Admin panel</h2><p class="sub">Manage PENG.LOL community accounts.</p><div style="max-height:55vh;overflow:auto">${d.users.map(u=>`<div class="admin-user"><div><b>${esc(u.username)}</b> ${u.role==="owner"?"<span class='owner-pill'>OWNER</span>":""}<small>${esc(u.role)} · ${u.banned?"Suspended":"Active"}</small></div>${u.role==="owner"?"":`<div class="mod-actions"><button class="small-btn ban-user" data-id="${u.id}" data-banned="${u.banned?0:1}">${u.banned?"Unban":"Ban"}</button>${me.role==="owner"?`<button class="small-btn role-user" data-id="${u.id}" data-role="${u.role==="admin"?"user":"admin"}">${u.role==="admin"?"Remove admin":"Make admin"}</button><button class="small-btn delete-user" data-id="${u.id}">Delete</button>`:""}</div>`}</div>`).join("")}</div>`);
- document.querySelectorAll(".ban-user").forEach(b=>b.onclick=async()=>{try{await api(`/api/admin/users/${b.dataset.id}/ban`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({banned:b.dataset.banned==="1"})});adminPanel()}catch(e){toast(e.message)}});
- document.querySelectorAll(".role-user").forEach(b=>b.onclick=async()=>{try{await api(`/api/admin/users/${b.dataset.id}/role`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:b.dataset.role})});adminPanel()}catch(e){toast(e.message)}});
- document.querySelectorAll(".delete-user").forEach(b=>b.onclick=async()=>{if(confirm("Permanently delete this user?")){try{await api(`/api/admin/users/${b.dataset.id}`,{method:"DELETE"});adminPanel()}catch(e){toast(e.message)}}});
- }catch(e){toast(e.message)}}
-(async()=>{try{me=(await api("/api/me")).user}catch{}accountUI();loadMods();loadStats();loadTutorials();$("#year").textContent=new Date().getFullYear()})();
+
+function showToast(message) {
+    const toast = $("#toast");
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.classList.add("show");
+
+    setTimeout(() => toast.classList.remove("show"), 3000);
+}
+
+function openModal(content) {
+    modalContent.innerHTML = content;
+    modalBackdrop.classList.add("active");
+}
+
+function closeModal() {
+    modalBackdrop.classList.remove("active");
+}
+
+$("#modalClose")?.addEventListener("click", closeModal);
+
+modalBackdrop?.addEventListener("click", event => {
+    if (event.target === modalBackdrop) closeModal();
+});
+
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape") closeModal();
+});
+
+// LOGIN
+
+function loginModal() {
+    openModal(`
+        <div class="modal-heading">
+            <h2>Owner Login</h2>
+            <p>Sign in to manage PENG.LOL.</p>
+        </div>
+
+        <form id="loginForm" class="site-form">
+            <label>Username</label>
+            <input name="username" placeholder="Username" required>
+
+            <label>Password</label>
+            <input name="password" type="password"
+                placeholder="Password" required>
+
+            <button class="primary-button" type="submit">
+                Login
+            </button>
+        </form>
+    `);
+}
+
+$("#loginOpen")?.addEventListener("click", loginModal);
+
+$("#loginForm")?.addEventListener("submit", handleLogin);
+
+document.addEventListener("submit", async event => {
+    if (event.target.id !== "loginForm") return;
+    await handleLogin(event);
+});
+
+async function handleLogin(event) {
+    if (event.target.id !== "loginForm") return;
+
+    event.preventDefault();
+
+    const form = new FormData(event.target);
+
+    try {
+        await api("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: form.get("username"),
+                password: form.get("password")
+            })
+        });
+
+        await loadAccount();
+        closeModal();
+        showToast("Welcome back!");
+    } catch (error) {
+        showToast(error.message);
+    }
+}
+
+async function loadAccount() {
+    try {
+        const data = await api("/api/me");
+        currentUser = data.user;
+
+        const loginButton = $("#loginOpen");
+        const accountButton = $("#accountBtn");
+
+        if (currentUser) {
+            if (loginButton) loginButton.style.display = "none";
+            if (accountButton) {
+                accountButton.style.display = "inline-flex";
+                accountButton.textContent = "Owner Panel";
+            }
+        } else {
+            if (loginButton) loginButton.style.display = "";
+            if (accountButton) accountButton.style.display = "none";
+        }
+    } catch {
+        currentUser = null;
+    }
+}
+
+// OWNER PANEL
+
+$("#accountBtn")?.addEventListener("click", ownerPanel);
+
+function ownerPanel() {
+    if (!currentUser) return loginModal();
+
+    openModal(`
+        <div class="modal-heading">
+            <h2>Owner Panel</h2>
+            <p>Manage your PENG.LOL website.</p>
+        </div>
+
+        <div class="owner-actions">
+            <button class="primary-button" id="addModButton">
+                Add a Mod
+            </button>
+
+            <button class="primary-button" id="addToolButton">
+                Add a Tool
+            </button>
+
+            <button class="secondary-button" id="logoutButton">
+                Logout
+            </button>
+        </div>
+    `);
+
+    $("#addModButton").onclick = addModModal;
+    $("#addToolButton").onclick = addToolModal;
+    $("#logoutButton").onclick = logout;
+}
+
+async function logout() {
+    try {
+        await api("/api/logout", { method: "POST" });
+        currentUser = null;
+        await loadAccount();
+        closeModal();
+        showToast("Logged out.");
+    } catch (error) {
+        showToast(error.message);
+    }
+}
+
+// ADD / EDIT MODS
+
+function addModModal(mod = null) {
+    const editing = Boolean(mod);
+
+    openModal(`
+        <div class="modal-heading">
+            <h2>${editing ? "Edit Mod" : "Add a Mod"}</h2>
+            <p>${editing ? "Update your mod." : "Publish a new mod on PENG.LOL."}</p>
+        </div>
+
+        <form id="modForm" class="site-form">
+            <label>Mod Name</label>
+            <input name="name" required
+                value="${escapeHTML(mod?.name || "")}"
+                placeholder="My Awesome Mod">
+
+            <label>Game</label>
+            <input name="game"
+                value="${escapeHTML(mod?.game || "")}"
+                placeholder="Game name">
+
+            <label>Description</label>
+            <textarea name="description" required
+                placeholder="Describe your mod...">${escapeHTML(mod?.description || "")}</textarea>
+
+            <label>Download URL</label>
+            <input name="download_url" type="url" required
+                value="${escapeHTML(mod?.download_url || "")}"
+                placeholder="https://...">
+
+            <label>Mod Image</label>
+            <input name="image" type="file" accept="image/*">
+
+            <button class="primary-button" type="submit">
+                ${editing ? "Save Changes" : "Publish Mod"}
+            </button>
+        </form>
+    `);
+
+    $("#modForm").onsubmit = async event => {
+        event.preventDefault();
+
+        const formData = new FormData(event.target);
+
+        try {
+            await api(editing ? `/api/mods/${mod.id}` : "/api/mods", {
+                method: editing ? "PUT" : "POST",
+                body: formData
+            });
+
+            closeModal();
+            await loadMods();
+            showToast(editing ? "Mod updated!" : "Mod published!");
+        } catch (error) {
+            showToast(error.message);
+        }
+    };
+}
+
+// ADD TOOLS
+
+function addToolModal() {
+    openModal(`
+        <div class="modal-heading">
+            <h2>Add a Tool</h2>
+            <p>Add a downloadable tool or useful link.</p>
+        </div>
+
+        <form id="toolForm" class="site-form">
+            <label>Tool Name</label>
+            <input name="name" required placeholder="Tool name">
+
+            <label>Description</label>
+            <textarea name="description"
+                placeholder="What does this tool do?"></textarea>
+
+            <label>Tool URL</label>
+            <input name="url" type="url" required
+                placeholder="https://...">
+
+            <button class="primary-button" type="submit">
+                Publish Tool
+            </button>
+        </form>
+    `);
+
+    $("#toolForm").onsubmit = async event => {
+        event.preventDefault();
+
+        const form = new FormData(event.target);
+
+        try {
+            await api("/api/tools", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: form.get("name"),
+                    description: form.get("description"),
+                    url: form.get("url")
+                })
+            });
+
+            closeModal();
+            await loadTools();
+            showToast("Tool published!");
+        } catch (error) {
+            showToast(error.message);
+        }
+    };
+}
+
+// LOAD MODS
+
+async function loadMods() {
+    try {
+        const data = await api("/api/mods");
+        mods = data.mods || [];
+        renderMods();
+    } catch (error) {
+        showToast(error.message);
+    }
+}
+
+function renderMods() {
+    const grid = $("#modGrid");
+    if (!grid) return;
+
+    const search = ($("#search")?.value || "").toLowerCase();
+    const sort = $("#sort")?.value || "newest";
+
+    let filtered = mods.filter(mod =>
+        [mod.name, mod.game, mod.description]
+            .some(value => String(value || "").toLowerCase().includes(search))
+    );
+
+    if (sort === "downloads") {
+        filtered.sort((a, b) => b.downloads - a.downloads);
+    }
+
+    if (sort === "newest") {
+        filtered.sort((a, b) =>
+            new Date(b.created_at) - new Date(a.created_at)
+        );
+    }
+
+    if (!filtered.length) {
+        grid.innerHTML = `<p class="empty-message">No mods found.</p>`;
+        return;
+    }
+
+    grid.innerHTML = filtered.map(mod => `
+        <article class="mod-card">
+            ${mod.image_url ? `
+                <img class="mod-image"
+                    src="${escapeHTML(mod.image_url)}"
+                    alt="${escapeHTML(mod.name)}">
+            ` : ""}
+
+            <div class="mod-card-content">
+                <h3>${escapeHTML(mod.name)}</h3>
+
+                <p>${escapeHTML(mod.description)}</p>
+
+                <span class="mod-game">
+                    ${escapeHTML(mod.game || "Other")}
+                </span>
+
+                <div class="mod-card-footer">
+                    <span>${Number(mod.downloads) || 0} downloads</span>
+
+                    <a class="primary-button"
+                        href="/api/mods/${mod.id}/download">
+                        Download
+                    </a>
+                </div>
+
+                ${currentUser ? `
+                    <div class="admin-buttons">
+                        <button data-edit="${mod.id}">Edit</button>
+                        <button data-delete="${mod.id}">Delete</button>
+                    </div>
+                ` : ""}
+            </div>
+        </article>
+    `).join("");
+
+    grid.querySelectorAll("[data-edit]").forEach(button => {
+        button.onclick = () => {
+            const mod = mods.find(item =>
+                item.id === Number(button.dataset.edit)
+            );
+            if (mod) addModModal(mod);
+        };
+    });
+
+    grid.querySelectorAll("[data-delete]").forEach(button => {
+        button.onclick = async () => {
+            if (!confirm("Delete this mod?")) return;
+
+            try {
+                await api(`/api/mods/${button.dataset.delete}`, {
+                    method: "DELETE"
+                });
+
+                await loadMods();
+                showToast("Mod deleted.");
+            } catch (error) {
+                showToast(error.message);
+            }
+        };
+    });
+}
+
+$("#search")?.addEventListener("input", renderMods);
+$("#sort")?.addEventListener("change", renderMods);
+
+// LOAD TOOLS
+
+async function loadTools() {
+    try {
+        const data = await api("/api/tools");
+        tools = data.tools || [];
+        renderTools();
+    } catch (error) {
+        showToast(error.message);
+    }
+}
+
+function renderTools() {
+    const grid = $("#toolGrid");
+    if (!grid) return;
+
+    if (!tools.length) {
+        grid.innerHTML = `<p class="empty-message">No tools added yet.</p>`;
+        return;
+    }
+
+    grid.innerHTML = tools.map(tool => `
+        <article class="tool-card">
+            <h3>${escapeHTML(tool.name)}</h3>
+            <p>${escapeHTML(tool.description)}</p>
+
+            <a class="primary-button"
+                href="${escapeHTML(tool.url)}"
+                target="_blank"
+                rel="noopener noreferrer">
+                Open Tool
+            </a>
+
+            ${currentUser ? `
+                <button class="delete-tool"
+                    data-delete-tool="${tool.id}">
+                    Delete
+                </button>
+            ` : ""}
+        </article>
+    `).join("");
+
+    grid.querySelectorAll("[data-delete-tool]").forEach(button => {
+        button.onclick = async () => {
+            if (!confirm("Delete this tool?")) return;
+
+            try {
+                await api(`/api/tools/${button.dataset.deleteTool}`, {
+                    method: "DELETE"
+                });
+
+                await loadTools();
+                showToast("Tool deleted.");
+            } catch (error) {
+                showToast(error.message);
+            }
+        };
+    });
+}
+
+// START WEBSITE
+
+async function startWebsite() {
+    await loadAccount();
+    await loadMods();
+    await loadTools();
+}
+
+startWebsite();
