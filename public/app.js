@@ -7,6 +7,8 @@ let tools = [];
 const modalBackdrop = $("#modalBackdrop");
 const modalContent = $("#modalContent");
 
+// API REQUESTS
+
 async function api(url, options = {}) {
     const response = await fetch(url, {
         credentials: "same-origin",
@@ -21,6 +23,8 @@ async function api(url, options = {}) {
 
     return data;
 }
+
+// HELPERS
 
 function escapeHTML(value = "") {
     return String(value).replace(/[&<>"']/g, char => ({
@@ -42,13 +46,17 @@ function showToast(message) {
     setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
+// MODAL
+
 function openModal(content) {
+    if (!modalBackdrop || !modalContent) return;
+
     modalContent.innerHTML = content;
-    modalBackdrop.classList.add("active");
+    modalBackdrop.classList.add("open");
 }
 
 function closeModal() {
-    modalBackdrop.classList.remove("active");
+    modalBackdrop?.classList.remove("open");
 }
 
 $("#modalClose")?.addEventListener("click", closeModal);
@@ -70,33 +78,30 @@ function loginModal() {
             <p>Sign in to manage PENG.LOL.</p>
         </div>
 
-        <form id="loginForm" class="site-form">
-            <label>Username</label>
-            <input name="username" placeholder="Username" required>
+        <form id="loginForm">
+            <div class="field">
+                <label>Username</label>
+                <input name="username" placeholder="Username" required>
+            </div>
 
-            <label>Password</label>
-            <input name="password" type="password"
-                placeholder="Password" required>
+            <div class="field">
+                <label>Password</label>
+                <input name="password" type="password"
+                    placeholder="Password" required>
+            </div>
 
-            <button class="primary-button" type="submit">
+            <button class="form-submit" type="submit">
                 Login
             </button>
         </form>
     `);
+
+    $("#loginForm").addEventListener("submit", handleLogin);
 }
 
 $("#loginOpen")?.addEventListener("click", loginModal);
 
-$("#loginForm")?.addEventListener("submit", handleLogin);
-
-document.addEventListener("submit", async event => {
-    if (event.target.id !== "loginForm") return;
-    await handleLogin(event);
-});
-
 async function handleLogin(event) {
-    if (event.target.id !== "loginForm") return;
-
     event.preventDefault();
 
     const form = new FormData(event.target);
@@ -113,11 +118,15 @@ async function handleLogin(event) {
 
         await loadAccount();
         closeModal();
+        await loadMods();
+        await loadTools();
         showToast("Welcome back!");
     } catch (error) {
         showToast(error.message);
     }
 }
+
+// ACCOUNT
 
 async function loadAccount() {
     try {
@@ -129,13 +138,17 @@ async function loadAccount() {
 
         if (currentUser) {
             if (loginButton) loginButton.style.display = "none";
+
             if (accountButton) {
                 accountButton.style.display = "inline-flex";
                 accountButton.textContent = "Owner Panel";
             }
         } else {
             if (loginButton) loginButton.style.display = "";
-            if (accountButton) accountButton.style.display = "none";
+
+            if (accountButton) {
+                accountButton.style.display = "none";
+            }
         }
     } catch {
         currentUser = null;
@@ -147,7 +160,10 @@ async function loadAccount() {
 $("#accountBtn")?.addEventListener("click", ownerPanel);
 
 function ownerPanel() {
-    if (!currentUser) return loginModal();
+    if (!currentUser) {
+        loginModal();
+        return;
+    }
 
     openModal(`
         <div class="modal-heading">
@@ -156,15 +172,15 @@ function ownerPanel() {
         </div>
 
         <div class="owner-actions">
-            <button class="primary-button" id="addModButton">
+            <button class="form-submit" id="addModButton">
                 Add a Mod
             </button>
 
-            <button class="primary-button" id="addToolButton">
+            <button class="form-submit" id="addToolButton">
                 Add a Tool
             </button>
 
-            <button class="secondary-button" id="logoutButton">
+            <button class="small-btn" id="logoutButton">
                 Logout
             </button>
         </div>
@@ -178,8 +194,12 @@ function ownerPanel() {
 async function logout() {
     try {
         await api("/api/logout", { method: "POST" });
+
         currentUser = null;
         await loadAccount();
+        await loadMods();
+        await loadTools();
+
         closeModal();
         showToast("Logged out.");
     } catch (error) {
@@ -190,6 +210,8 @@ async function logout() {
 // ADD / EDIT MODS
 
 function addModModal(mod = null) {
+    if (!currentUser) return;
+
     const editing = Boolean(mod);
 
     openModal(`
@@ -198,30 +220,40 @@ function addModModal(mod = null) {
             <p>${editing ? "Update your mod." : "Publish a new mod on PENG.LOL."}</p>
         </div>
 
-        <form id="modForm" class="site-form">
-            <label>Mod Name</label>
-            <input name="name" required
-                value="${escapeHTML(mod?.name || "")}"
-                placeholder="My Awesome Mod">
+        <form id="modForm">
+            <div class="field">
+                <label>Mod Name</label>
+                <input name="name" required
+                    value="${escapeHTML(mod?.name || "")}"
+                    placeholder="My Awesome Mod">
+            </div>
 
-            <label>Game</label>
-            <input name="game"
-                value="${escapeHTML(mod?.game || "")}"
-                placeholder="Game name">
+            <div class="field">
+                <label>Game</label>
+                <input name="game"
+                    value="${escapeHTML(mod?.game || "")}"
+                    placeholder="Game name">
+            </div>
 
-            <label>Description</label>
-            <textarea name="description" required
-                placeholder="Describe your mod...">${escapeHTML(mod?.description || "")}</textarea>
+            <div class="field">
+                <label>Description</label>
+                <textarea name="description" required
+                    placeholder="Describe your mod...">${escapeHTML(mod?.description || "")}</textarea>
+            </div>
 
-            <label>Download URL</label>
-            <input name="download_url" type="url" required
-                value="${escapeHTML(mod?.download_url || "")}"
-                placeholder="https://...">
+            <div class="field">
+                <label>Download URL</label>
+                <input name="download_url" type="url" required
+                    value="${escapeHTML(mod?.download_url || "")}"
+                    placeholder="https://...">
+            </div>
 
-            <label>Mod Image</label>
-            <input name="image" type="file" accept="image/*">
+            <div class="field">
+                <label>Mod Image</label>
+                <input name="image" type="file" accept="image/*">
+            </div>
 
-            <button class="primary-button" type="submit">
+            <button class="form-submit" type="submit">
                 ${editing ? "Save Changes" : "Publish Mod"}
             </button>
         </form>
@@ -233,13 +265,17 @@ function addModModal(mod = null) {
         const formData = new FormData(event.target);
 
         try {
-            await api(editing ? `/api/mods/${mod.id}` : "/api/mods", {
-                method: editing ? "PUT" : "POST",
-                body: formData
-            });
+            await api(
+                editing ? `/api/mods/${mod.id}` : "/api/mods",
+                {
+                    method: editing ? "PUT" : "POST",
+                    body: formData
+                }
+            );
 
             closeModal();
             await loadMods();
+
             showToast(editing ? "Mod updated!" : "Mod published!");
         } catch (error) {
             showToast(error.message);
@@ -250,25 +286,33 @@ function addModModal(mod = null) {
 // ADD TOOLS
 
 function addToolModal() {
+    if (!currentUser) return;
+
     openModal(`
         <div class="modal-heading">
             <h2>Add a Tool</h2>
-            <p>Add a downloadable tool or useful link.</p>
+            <p>Add a useful tool or link.</p>
         </div>
 
-        <form id="toolForm" class="site-form">
-            <label>Tool Name</label>
-            <input name="name" required placeholder="Tool name">
+        <form id="toolForm">
+            <div class="field">
+                <label>Tool Name</label>
+                <input name="name" required placeholder="Tool name">
+            </div>
 
-            <label>Description</label>
-            <textarea name="description"
-                placeholder="What does this tool do?"></textarea>
+            <div class="field">
+                <label>Description</label>
+                <textarea name="description"
+                    placeholder="What does this tool do?"></textarea>
+            </div>
 
-            <label>Tool URL</label>
-            <input name="url" type="url" required
-                placeholder="https://...">
+            <div class="field">
+                <label>Tool URL</label>
+                <input name="url" type="url" required
+                    placeholder="https://...">
+            </div>
 
-            <button class="primary-button" type="submit">
+            <button class="form-submit" type="submit">
                 Publish Tool
             </button>
         </form>
@@ -320,11 +364,15 @@ function renderMods() {
 
     let filtered = mods.filter(mod =>
         [mod.name, mod.game, mod.description]
-            .some(value => String(value || "").toLowerCase().includes(search))
+            .some(value =>
+                String(value || "").toLowerCase().includes(search)
+            )
     );
 
     if (sort === "downloads") {
-        filtered.sort((a, b) => b.downloads - a.downloads);
+        filtered.sort((a, b) =>
+            (Number(b.downloads) || 0) - (Number(a.downloads) || 0)
+        );
     }
 
     if (sort === "newest") {
@@ -341,33 +389,35 @@ function renderMods() {
     grid.innerHTML = filtered.map(mod => `
         <article class="mod-card">
             ${mod.image_url ? `
-                <img class="mod-image"
+                <img class="mod-cover"
                     src="${escapeHTML(mod.image_url)}"
                     alt="${escapeHTML(mod.name)}">
             ` : ""}
 
-            <div class="mod-card-content">
+            <div class="mod-body">
                 <h3>${escapeHTML(mod.name)}</h3>
-
                 <p>${escapeHTML(mod.description)}</p>
 
-                <span class="mod-game">
+                <span class="mod-meta">
                     ${escapeHTML(mod.game || "Other")}
                 </span>
 
-                <div class="mod-card-footer">
+                <div class="mod-foot">
                     <span>${Number(mod.downloads) || 0} downloads</span>
 
-                    <a class="primary-button"
-                        href="/api/mods/${mod.id}/download">
+                    <a class="small-btn"
+                        href="/api/mods/${Number(mod.id)}/download">
                         Download
                     </a>
                 </div>
 
                 ${currentUser ? `
                     <div class="admin-buttons">
-                        <button data-edit="${mod.id}">Edit</button>
-                        <button data-delete="${mod.id}">Delete</button>
+                        <button class="small-btn"
+                            data-edit="${Number(mod.id)}">Edit</button>
+
+                        <button class="small-btn"
+                            data-delete="${Number(mod.id)}">Delete</button>
                     </div>
                 ` : ""}
             </div>
@@ -379,6 +429,7 @@ function renderMods() {
             const mod = mods.find(item =>
                 item.id === Number(button.dataset.edit)
             );
+
             if (mod) addModModal(mod);
         };
     });
@@ -426,11 +477,11 @@ function renderTools() {
     }
 
     grid.innerHTML = tools.map(tool => `
-        <article class="tool-card">
+        <article class="tool-item">
             <h3>${escapeHTML(tool.name)}</h3>
             <p>${escapeHTML(tool.description)}</p>
 
-            <a class="primary-button"
+            <a class="small-btn"
                 href="${escapeHTML(tool.url)}"
                 target="_blank"
                 rel="noopener noreferrer">
@@ -438,8 +489,8 @@ function renderTools() {
             </a>
 
             ${currentUser ? `
-                <button class="delete-tool"
-                    data-delete-tool="${tool.id}">
+                <button class="small-btn"
+                    data-delete-tool="${Number(tool.id)}">
                     Delete
                 </button>
             ` : ""}
