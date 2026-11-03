@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#09090d"><title>PENG.LOL — Modding, made simple.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="ambient a1"></div><div class="ambient a2"></div>
+<header class="topbar">
+ <a class="brand" href="#"><span class="brand-mark">P</span><span>PENG<span class="dot">.</span>LOL</span></a>
+ <nav><a href="#mods">Mods</a><a href="#tools">Tools</a><a href="#tutorials">Tutorials</a><a href="#community">Community</a></nav>
+ <div class="header-actions"><button class="btn ghost" id="loginOpen">Log in</button><button class="btn primary" id="signupOpen">Join community <span>↗</span></button><button class="avatar hidden" id="accountBtn">?</button></div>
+</header>
+<main>
+<section class="hero">
+ <div class="hero-copy">
+  <div class="eyebrow"><span class="pulse"></span> THE MODDING COMMUNITY</div>
+  <h1>Make games<br><span>your own.</span></h1>
+  <p class="hero-text">Mods, tools, and guides made by the community. Find your next project and build something different.</p>
+  <div class="hero-actions"><a class="btn primary large" href="#mods">Explore mods <span>→</span></a><a class="btn outline large" href="#tutorials">Browse tutorials</a></div>
+  <div class="hero-note"><span class="tiny-check">✓</span> Community-powered. Built for creators.</div>
+ </div>
+ <div class="hero-art" aria-label="PENG.LOL abstract logo artwork">
+  <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="art-core"><span>P</span></div>
+  <div class="float-card fc-one"><span class="mini-icon">⌘</span><div><b>Tools & mods</b><small>All in one place</small></div></div>
+  <div class="float-card fc-two"><span class="online-dot"></span><div><b>Community online</b><small>Build. Share. Explore.</small></div></div>
+  <div class="art-caption">PENG.LOL <span>EST. FOR CREATORS</span></div>
+ </div>
+</section>
+<section class="stats-row"><div><strong id="statMods">0</strong><span>Community mods</span></div><div><strong id="statDownloads">0</strong><span>Total downloads</span></div><div><strong id="statUsers">0</strong><span>Members</span></div><div class="stats-tag"><span class="pulse"></span> Growing together</div></section>
+<section class="section" id="mods">
+ <div class="section-head"><div><div class="eyebrow">DISCOVER</div><h2>Community <span>mods</span></h2><p>Find something new to install, test, or build on.</p></div><button class="btn primary" id="uploadOpen">＋ Upload a mod</button></div>
+ <div class="toolbar"><label class="search"><span>⌕</span><input id="search" placeholder="Search mods, games, creators..."></label><select id="sort"><option value="newest">Newest first</option><option value="downloads">Most downloaded</option><option value="updated">Recently updated</option></select></div>
+ <div class="mod-grid" id="modGrid"><div class="empty-state">Loading community mods…</div></div>
+</section>
+<section class="tools-band" id="tools"><div class="tools-copy"><div class="eyebrow">CREATOR WORKSPACE</div><h2>Good tools.<br><span>Better creations.</span></h2><p>Useful resources for inspecting, editing, and understanding your projects.</p></div>
+ <div class="tool-list">
+  <article class="tool-item"><div class="tool-icon">⌘</div><div><b>APK Inspector</b><p>Learn how to inspect package details and app metadata.</p></div><span class="tool-arrow">↗</span></article>
+  <article class="tool-item"><div class="tool-icon">▧</div><div><b>Package Name Guide</b><p>Understand application IDs and safe package editing.</p></div><span class="tool-arrow">↗</span></article>
+  <article class="tool-item"><div class="tool-icon">⌁</div><div><b>VR Modding Setup</b><p>Get started with Quest development and modding.</p></div><span class="tool-arrow">↗</span></article>
+ </div>
+</section>
+<section class="section tutorial-section" id="tutorials"><div class="section-head"><div><div class="eyebrow">LEARN SOMETHING</div><h2>Guides & <span>tutorials</span></h2><p>Clear walkthroughs to help you get from idea to working project.</p></div></div><div id="tutorialGrid" class="tutorial-grid"><div class="empty-state">No tutorials published yet.</div></div></section>
+<section class="community" id="community"><div><div class="eyebrow">BUILT BY THE COMMUNITY</div><h2>Your next project<br>starts <span>here.</span></h2><p>Share what you make, help someone learn, and find people building the same things.</p></div><div class="community-actions"><button class="btn primary large" id="communityJoin">Create an account ↗</button><a class="btn outline large" href="#mods">Explore the library</a></div></section>
+</main>
+<footer><a class="brand" href="#"><span class="brand-mark">P</span><span>PENG<span class="dot">.</span>LOL</span></a><span>Made for people who love to mod.</span><span>© <span id="year"></span> PENG.LOL</span></footer>
+<div class="toast" id="toast"></div>
+<div class="modal-backdrop" id="modalBackdrop"><div class="modal" id="modal"><button class="modal-close" id="modalClose">×</button><div id="modalContent"></div></div></div>
+<script src="/app.js"></script>
+</body></html>
