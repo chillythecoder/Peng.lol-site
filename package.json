@@ -2,10 +2,15 @@
   "name": "peng-lol-modding",
   "version": "1.0.0",
   "private": true,
-  "description": "PENG.LOL modding community website",
+  "description": "PENG.LOL website",
   "main": "server.js",
-  "scripts": { "start": "node server.js", "dev": "node --watch server.js" },
-  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "connect-sqlite3": "^0.9.16",
     "bcryptjs": "^2.4.3",
